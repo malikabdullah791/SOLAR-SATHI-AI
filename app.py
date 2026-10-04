@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from agents.supervisor_agent import (
-    run_supervisor_agent,
-)
+
 from tools.energy_tools import (
     calculate_energy_flow,
     calculate_backup_time,
@@ -29,6 +27,9 @@ from agents.load_agent import (
 
 from agents.grid_agent import (
     run_grid_agent,
+)
+from agents.supervisor_agent import (
+    run_supervisor_agent,
 )
 # ============================================================
 # PAGE CONFIGURATION
@@ -755,6 +756,7 @@ tabs = st.tabs(
         "⚡ Energy Manager",
         "🔋 Battery Health Doctor",
         "🤖 AI Agent",
+        "🧠 Supervisor Agent",
         "📚 Knowledge / RAG",
         "📄 Reports & Insights",
         "⚙️ Settings",
@@ -1416,7 +1418,238 @@ with tabs[3]:
         use_container_width=True,
         hide_index=True,
     )
+with tabs[4]:
 
+    st.subheader("🧠 Supervisor Agent")
+
+    st.write(
+        "The Supervisor coordinates the Solar, Battery, "
+        "Load and Grid Agents and produces an overall "
+        "energy-management recommendation."
+    )
+
+    if st.button(
+        "Run Supervisor Analysis",
+        type="primary",
+    ):
+
+        try:
+
+            with st.spinner(
+                "Supervisor is coordinating specialist agents..."
+            ):
+
+                supervisor_result = run_supervisor_agent(
+
+                    solar_kw=solar_kw,
+
+                    load_kw=load_kw,
+
+                    grid_available=grid_available,
+
+                    battery_type=battery_type,
+
+                    battery_voltage=battery_voltage,
+
+                    rated_capacity_ah=rated_capacity_ah,
+
+                    measured_capacity_ah=measured_capacity_ah,
+
+                    battery_current=battery_current,
+
+                    temperature_c=temperature_c,
+
+                    battery_age=battery_age,
+
+                    battery_soc=battery_soc,
+
+                    symptoms=symptoms,
+
+                    essential_load_kw=essential_load_kw,
+
+                    non_essential_load_kw=non_essential_load_kw,
+
+                    peak_load_kw=peak_load_kw,
+
+                    grid_tariff=grid_tariff,
+                )
+
+            if not supervisor_result["success"]:
+
+                st.error(
+                    supervisor_result["message"]
+                )
+
+            else:
+
+                st.success(
+                    "Supervisor analysis completed successfully."
+                )
+
+                # Overall status
+
+                priority = (
+                    supervisor_result[
+                        "final_recommendation"
+                    ]["priority"]
+                )
+
+                st.metric(
+                    "Overall Status",
+                    priority,
+                )
+
+                # Workflow
+
+                st.markdown(
+                    "### 🔄 Supervisor Workflow"
+                )
+
+                for step in supervisor_result[
+                    "workflow"
+                ]:
+
+                    st.write(
+                        f"✓ {step}"
+                    )
+
+                # Recommendations
+
+                st.markdown(
+                    "### 💡 Final Recommendations"
+                )
+
+                recommendations = (
+                    supervisor_result[
+                        "final_recommendation"
+                    ]["recommendations"]
+                )
+
+                for recommendation in recommendations:
+
+                    st.info(
+                        recommendation
+                    )
+
+                # Warnings
+
+                warnings = (
+                    supervisor_result[
+                        "final_recommendation"
+                    ]["warnings"]
+                )
+
+                if warnings:
+
+                    st.markdown(
+                        "### ⚠️ Warnings"
+                    )
+
+                    for warning in warnings:
+
+                        st.warning(
+                            warning
+                        )
+
+                # Specialist results
+
+                st.markdown(
+                    "### 🤖 Specialist Agent Results"
+                )
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+
+                    st.write(
+                        "☀️ **Solar Agent**"
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "solar_agent"
+                        ]["status"]
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "solar_agent"
+                        ]["recommendation"]
+                    )
+
+                with col2:
+
+                    st.write(
+                        "🔋 **Battery Agent**"
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "battery_agent"
+                        ]["status"]
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "battery_agent"
+                        ]["recommendation"]
+                    )
+
+                col3, col4 = st.columns(2)
+
+                with col3:
+
+                    st.write(
+                        "⚡ **Load Agent**"
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "load_agent"
+                        ]["status"]
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "load_agent"
+                        ]["recommendation"]
+                    )
+
+                with col4:
+
+                    st.write(
+                        "🏠 **Grid Agent**"
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "grid_agent"
+                        ]["grid_status"]
+                    )
+
+                    st.write(
+                        supervisor_result[
+                            "grid_agent"
+                        ]["recommendation"]
+                    )
+
+                # Detailed output
+
+                with st.expander(
+                    "View detailed Supervisor output"
+                ):
+
+                    st.json(
+                        supervisor_result
+                    )
+
+        except Exception as error:
+
+            st.error(
+                "Supervisor analysis failed."
+            )
+
+            st.exception(error)
 # ============================================================
 # TAB 5 — KNOWLEDGE / RAG
 # ============================================================
