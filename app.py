@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-
+from agents.supervisor_agent import (
+    run_supervisor_agent,
+)
 from tools.energy_tools import (
     calculate_energy_flow,
     calculate_backup_time,
