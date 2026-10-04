@@ -1,3 +1,3 @@
 """
-SolarSathi AI specialist agents.
+SolarSathi AI specialist and supervisory agents.
 """
