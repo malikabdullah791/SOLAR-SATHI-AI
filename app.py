@@ -52,7 +52,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-
+initialize_memory()
 # ============================================================
 # CUSTOM CSS
 # ============================================================
