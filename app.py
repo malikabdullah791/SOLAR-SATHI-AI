@@ -1159,60 +1159,261 @@ with tabs[2]:
 
 
 # ============================================================
-# TAB 4 — AI AGENT
+# TAB 4 — SPECIALIST AGENTS
 # ============================================================
 
 with tabs[3]:
 
     st.markdown(
-        '<div class="section-title">🤖 AI Agent</div>',
+        '<div class="section-title">'
+        "🤖 Specialist Agents"
+        "</div>",
         unsafe_allow_html=True,
     )
 
     st.info(
-        "Groq-based AI agent integration will be added in "
-        "the next phase."
+        "Phase 4 uses deterministic specialist agents. "
+        "Groq-based reasoning and the Supervisor Agent "
+        "will be added in later phases."
     )
 
-    st.subheader("Current Agent Architecture")
+    # ========================================================
+    # AGENT STATUS
+    # ========================================================
+
+    st.subheader("Agent Status")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+
+        st.success(
+            "☀️ Solar Agent\n\n"
+            "Completed"
+        )
+
+    with col2:
+
+        st.success(
+            "🔋 Battery Agent\n\n"
+            "Completed"
+        )
+
+    with col3:
+
+        st.success(
+            "⚡ Load Agent\n\n"
+            "Completed"
+        )
+
+    with col4:
+
+        st.success(
+            "🔌 Grid Agent\n\n"
+            "Completed"
+        )
+
+    # ========================================================
+    # SOLAR AGENT
+    # ========================================================
+
+    st.subheader("☀️ Solar Agent")
+
+    solar_col1, solar_col2, solar_col3 = st.columns(3)
+
+    with solar_col1:
+
+        st.metric(
+            "Solar Generation",
+            f"{solar_agent_result['solar_generation_kw']:.2f} kW",
+        )
+
+    with solar_col2:
+
+        st.metric(
+            "Solar Surplus",
+            f"{solar_agent_result['solar_surplus_kw']:.2f} kW",
+        )
+
+    with solar_col3:
+
+        st.metric(
+            "Solar Deficit",
+            f"{solar_agent_result['solar_deficit_kw']:.2f} kW",
+        )
 
     st.write(
-        """
-        User Request
-        ↓
-        Supervisor Agent
-        ↓
-        ├── Solar Agent
-        ├── Battery Agent
-        ├── Load Agent
-        └── Grid Agent
-        ↓
-        Deterministic Python Tools
-        ↓
-        Supervisor Review
-        ↓
-        Final Recommendation
-        """
+        f"**Status:** "
+        f"{solar_agent_result['status']}"
     )
 
-    st.subheader("Current Activity")
+    st.write(
+        f"**Recommendation:** "
+        f"{solar_agent_result['recommendation']}"
+    )
 
-    activities = [
-        "✓ User/system inputs validated",
-        "✓ Energy calculation executed",
-        "✓ Battery capacity health calculated",
-        "✓ Battery SOH calculated",
-        "✓ Battery power calculated",
-        "✓ Temperature condition checked",
-        "✓ SOC condition checked",
-        "✓ Battery risk screening completed",
-        "✓ Possible causes generated",
-    ]
+    # ========================================================
+    # BATTERY AGENT
+    # ========================================================
 
-    for activity in activities:
+    st.subheader("🔋 Battery Agent")
 
-        st.write(activity)
+    battery_col1, battery_col2, battery_col3, battery_col4 = (
+        st.columns(4)
+    )
 
+    with battery_col1:
+
+        st.metric(
+            "SOH",
+            f"{battery_agent_result['soh_percent']:.1f}%",
+        )
+
+    with battery_col2:
+
+        st.metric(
+            "SOC",
+            f"{battery_agent_result['soc_percent']:.1f}%",
+        )
+
+    with battery_col3:
+
+        st.metric(
+            "Temperature",
+            f"{battery_agent_result['temperature_c']:.1f} °C",
+        )
+
+    with battery_col4:
+
+        st.metric(
+            "Risk",
+            battery_agent_result["risk_level"],
+        )
+
+    st.write(
+        f"**Status:** "
+        f"{battery_agent_result['status']}"
+    )
+
+    st.write(
+        f"**Recommendation:** "
+        f"{battery_agent_result['recommendation']}"
+    )
+
+    # ========================================================
+    # LOAD AGENT
+    # ========================================================
+
+    st.subheader("⚡ Load Agent")
+
+    load_col1, load_col2, load_col3 = st.columns(3)
+
+    with load_col1:
+
+        st.metric(
+            "Current Load",
+            f"{load_agent_result['current_load_kw']:.2f} kW",
+        )
+
+    with load_col2:
+
+        st.metric(
+            "Essential Load",
+            f"{load_agent_result['essential_load_kw']:.2f} kW",
+        )
+
+    with load_col3:
+
+        st.metric(
+            "Non-Essential Load",
+            f"{load_agent_result['non_essential_load_kw']:.2f} kW",
+        )
+
+    st.write(
+        f"**Status:** "
+        f"{load_agent_result['status']}"
+    )
+
+    st.write(
+        f"**Recommendation:** "
+        f"{load_agent_result['recommendation']}"
+    )
+
+    # ========================================================
+    # GRID AGENT
+    # ========================================================
+
+    st.subheader("🔌 Grid Agent")
+
+    grid_col1, grid_col2, grid_col3 = st.columns(3)
+
+    with grid_col1:
+
+        st.metric(
+            "Grid Status",
+            grid_agent_result["grid_status"],
+        )
+
+    with grid_col2:
+
+        st.metric(
+            "Recommended Import",
+            f"{grid_agent_result['recommended_grid_import_kw']:.2f} kW",
+        )
+
+    with grid_col3:
+
+        st.metric(
+            "Estimated Cost",
+            f"Rs {grid_agent_result['estimated_cost_rs']:.2f}",
+        )
+
+    st.write(
+        f"**Recommendation:** "
+        f"{grid_agent_result['recommendation']}"
+    )
+
+    # ========================================================
+    # AGENT SUMMARY
+    # ========================================================
+
+    st.subheader("📋 Specialist Agent Summary")
+
+    agent_summary = pd.DataFrame(
+        [
+            [
+                "☀️ Solar Agent",
+                solar_agent_result["status"],
+                solar_agent_result["recommendation"],
+            ],
+            [
+                "🔋 Battery Agent",
+                battery_agent_result["status"],
+                battery_agent_result["recommendation"],
+            ],
+            [
+                "⚡ Load Agent",
+                load_agent_result["status"],
+                load_agent_result["recommendation"],
+            ],
+            [
+                "🔌 Grid Agent",
+                grid_agent_result["grid_status"],
+                grid_agent_result["recommendation"],
+            ],
+        ],
+        columns=[
+            "Agent",
+            "Status",
+            "Recommendation",
+        ],
+    )
+
+    st.dataframe(
+        agent_summary,
+        use_container_width=True,
+        hide_index=True,
+    )
 
 # ============================================================
 # TAB 5 — KNOWLEDGE / RAG
