@@ -3,6 +3,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
 
+from tools.energy_tools import (
+    calculate_energy_flow,
+    calculate_backup_time,
+    calculate_energy_cost,
+    check_energy_balance,
+)
 
 # ============================================================
 # PAGE CONFIGURATION
