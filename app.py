@@ -612,7 +612,53 @@ except ValueError as error:
 
     st.stop()
 
+# ============================================================
+# PHASE 4 - SPECIALIST AGENTS
+# ============================================================
 
+try:
+
+    solar_agent_result = run_solar_agent(
+        solar_kw=solar_kw,
+        load_kw=load_kw,
+    )
+
+    battery_agent_result = run_battery_agent(
+        battery_type=battery_type,
+        voltage_v=battery_voltage,
+        rated_capacity_ah=rated_capacity_ah,
+        measured_capacity_ah=measured_capacity_ah,
+        current_a=battery_current,
+        temperature_c=temperature_c,
+        age_years=battery_age,
+        soc=battery_soc,
+        symptoms=symptoms,
+    )
+
+    load_agent_result = run_load_agent(
+        current_load_kw=load_kw,
+        essential_load_kw=essential_load_kw,
+        non_essential_load_kw=non_essential_load_kw,
+        peak_load_kw=peak_load_kw,
+    )
+
+    grid_agent_result = run_grid_agent(
+        grid_available=grid_available,
+        load_kw=load_kw,
+        solar_kw=solar_kw,
+        battery_to_load_kw=energy_flow[
+            "battery_to_load_kw"
+        ],
+        tariff_rs_per_kwh=grid_tariff,
+    )
+
+except ValueError as error:
+
+    st.error(
+        f"Agent calculation error: {error}"
+    )
+
+    st.stop()
 # ============================================================
 # MAIN KPI DASHBOARD
 # ============================================================
