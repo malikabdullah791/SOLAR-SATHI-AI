@@ -1533,6 +1533,38 @@ with tabs[4]:
                     st.info(
                         recommendation
                     )
+                # -----------------------------------------
+                # AI Report
+                # -----------------------------------------
+
+                st.markdown(
+                    "### 🤖 SolarSathi AI Report"
+                )
+
+                ai_report = supervisor_result.get(
+                    "ai_report",
+                    {}
+                )
+
+                if ai_report.get("success"):
+
+                    st.markdown(
+                        ai_report["response"]
+                    )
+
+                else:
+
+                    st.warning(
+                        "AI explanation is currently "
+                        "unavailable. The deterministic "
+                        "energy analysis is still available."
+                    )
+
+                    if ai_report.get("error"):
+
+                        st.caption(
+                            ai_report["error"]
+                        )
 
                 # Warnings
 
