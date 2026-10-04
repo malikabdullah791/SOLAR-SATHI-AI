@@ -408,6 +408,32 @@ load_kw = st.sidebar.number_input(
     step=0.1,
 )
 
+essential_load_kw = st.sidebar.number_input(
+    "Essential Load (kW)",
+    min_value=0.0,
+    value=min(
+        load_kw,
+        round(load_kw * 0.7, 1)
+    ),
+    step=0.1,
+)
+
+non_essential_load_kw = st.sidebar.number_input(
+    "Non-Essential Load (kW)",
+    min_value=0.0,
+    value=0.0,
+    step=0.1,
+)
+
+peak_load_kw = st.sidebar.number_input(
+    "Peak Load (kW)",
+    min_value=0.0,
+    value=max(
+        load_kw,
+        round(load_kw * 1.3, 1)
+    ),
+    step=0.1,
+)
 battery_soc = st.sidebar.slider(
     "Battery SOC (%)",
     0.0,
