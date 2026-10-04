@@ -1,26 +1,14 @@
 """
 SolarSathi AI - Supervisor Agent
-
-Phase 5
-
-The Supervisor Agent coordinates the specialist agents.
-
-Current version:
-- Deterministic Python orchestration
-- No Groq/LLM yet
-- Delegates tasks to specialist agents
-- Collects results
-- Performs basic consistency checks
-- Generates a structured overall recommendation
-
-Groq/LLM reasoning will be added in Phase 6.
 """
 
 from agents.solar_agent import run_solar_agent
 from agents.battery_agent import run_battery_agent
 from agents.load_agent import run_load_agent
 from agents.grid_agent import run_grid_agent
-
+from llm.groq_client import (
+    generate_ai_response,
+)
 
 def create_supervisor_plan(
     solar_kw,
@@ -141,7 +129,129 @@ def generate_supervisor_recommendation(
         "solar_surplus_kw",
         0.0
     )
+def create_ai_supervisor_prompt(
+    solar_result,
+    battery_result,
+    load_result,
+    grid_result,
+    final_recommendation,
+):
+    """
+    Build a structured prompt for the Groq LLM.
 
+    The LLM explains the deterministic results.
+    It does not replace the calculation engine.
+    """
+
+    prompt = f"""
+You are SolarSathi AI, an intelligent solar,
+battery and energy-management assistant.
+
+Your job is to explain the results produced by
+SolarSathi's deterministic calculation tools and
+specialist agents.
+
+IMPORTANT RULES:
+
+1. Do not invent measurements.
+2. Do not change calculated values.
+3. Do not claim that your answer is a professional
+   electrical diagnosis.
+4. Do not give dangerous electrical instructions.
+5. If battery health is concerning, recommend
+   professional inspection.
+6. Use simple language.
+7. Clearly distinguish calculated facts from
+   recommendations.
+8. Do not claim direct control of any inverter,
+   battery, solar system or grid equipment.
+
+SOLAR AGENT RESULT:
+
+{solar_result}
+
+
+BATTERY AGENT RESULT:
+
+{battery_result}
+
+
+LOAD AGENT RESULT:
+
+{load_result}
+
+
+GRID AGENT RESULT:
+
+{grid_result}
+
+
+SUPERVISOR RECOMMENDATION:
+
+{final_recommendation}
+
+
+Prepare a concise professional report with these sections:
+
+1. Overall Situation
+2. Solar Analysis
+3. Battery Analysis
+4. Load Analysis
+5. Grid Analysis
+6. Recommended Energy Strategy
+7. Important Warnings
+8. Safety Note
+
+Use bullet points where useful.
+"""
+
+    return prompt
+def generate_ai_supervisor_report(
+    solar_result,
+    battery_result,
+    load_result,
+    grid_result,
+    final_recommendation,
+):
+    """
+    Ask Groq to explain the deterministic
+    Supervisor results.
+    """
+
+    system_prompt = """
+You are SolarSathi AI.
+
+You are a careful energy-management assistant.
+
+You explain solar PV, battery, load and grid
+analysis in simple professional language.
+
+The Python calculation engine is the source
+of truth for numerical results.
+
+Never invent numerical values.
+
+Never claim direct control of equipment.
+
+Never provide unsafe electrical instructions.
+
+For battery problems, recommend qualified
+professional inspection where appropriate.
+"""
+
+    user_prompt = create_ai_supervisor_prompt(
+        solar_result=solar_result,
+        battery_result=battery_result,
+        load_result=load_result,
+        grid_result=grid_result,
+        final_recommendation=final_recommendation,
+    )
+
+    return generate_ai_response(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        temperature=0.2,
+    )    
     if solar_status == "Solar Surplus":
 
         recommendations.append(
@@ -474,13 +584,30 @@ def run_supervisor_agent(
             grid_result=grid_result,
         )
     )
-
     # -------------------------------------------------
-    # STEP 8: FINAL RESULT
+    # STEP 8: GENERATE AI EXPLANATION
     # -------------------------------------------------
 
-    return {
+    ai_report = generate_ai_supervisor_report(
+
+        solar_result=solar_result,
+
+        battery_result=battery_result,
+
+        load_result=load_result,
+
+        grid_result=grid_result,
+
+        final_recommendation=final_recommendation,
+
+    )
+    # -------------------------------------------------
+    # STEP 9: FINAL RESULT
+    # -------------------------------------------------
+
+       return {
         "success": True,
+
         "supervisor": "Supervisor Agent",
 
         "workflow": [
@@ -492,6 +619,7 @@ def run_supervisor_agent(
             "Grid Agent analyzed grid condition",
             "Supervisor validated agent results",
             "Supervisor generated final recommendation",
+            "Groq generated AI explanation",
         ],
 
         "plan": plan,
@@ -507,4 +635,6 @@ def run_supervisor_agent(
         "grid_agent": grid_result,
 
         "final_recommendation": final_recommendation,
+
+        "ai_report": ai_report,
     }
