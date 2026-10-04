@@ -1,16 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from memory.memory_manager import (
-    initialize_memory,
-    update_system_profile,
-    get_system_profile,
-    save_analysis,
-    save_recommendation,
-    save_ai_report,
-    get_analysis_history,
-    clear_memory,
-)
+
 from tools.energy_tools import (
     calculate_energy_flow,
     calculate_backup_time,
@@ -39,6 +30,16 @@ from agents.grid_agent import (
 )
 from agents.supervisor_agent import (
     run_supervisor_agent,
+)
+from memory.memory_manager import (
+    initialize_memory,
+    update_system_profile,
+    get_system_profile,
+    save_analysis,
+    save_recommendation,
+    save_ai_report,
+    get_analysis_history,
+    clear_memory,
 )
 # ============================================================
 # PAGE CONFIGURATION
