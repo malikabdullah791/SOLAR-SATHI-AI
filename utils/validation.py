@@ -1,85 +1,84 @@
 """
-SolarSathi AI - Input Validation
-
-This module validates user/system inputs before they
-are passed to energy calculation tools.
+Input validation utilities for SolarSathi AI.
 """
 
 
-def validate_power(
-    value: float,
-    field_name: str,
-) -> None:
-    """Validate a power value."""
+def validate_power(value, name="Power"):
+    value = float(value)
 
     if value < 0:
         raise ValueError(
-            f"{field_name} cannot be negative."
+            f"{name} cannot be negative."
         )
 
+    return value
 
-def validate_voltage(
-    voltage: float,
-) -> None:
-    """Validate battery/system voltage."""
 
-    if voltage <= 0:
+def validate_voltage(value, name="Voltage"):
+    value = float(value)
+
+    if value <= 0:
         raise ValueError(
-            "Voltage must be greater than zero."
+            f"{name} must be greater than zero."
         )
 
+    return value
 
-def validate_capacity(
-    capacity_kwh: float,
-) -> None:
-    """Validate battery capacity."""
 
-    if capacity_kwh <= 0:
+def validate_capacity(value, name="Capacity"):
+    value = float(value)
+
+    if value <= 0:
         raise ValueError(
-            "Battery capacity must be greater than zero."
+            f"{name} must be greater than zero."
         )
 
+    return value
 
-def validate_soc(
-    soc: float,
-) -> None:
-    """Validate battery state of charge."""
 
-    if not 0 <= soc <= 100:
+def validate_soc(value):
+    value = float(value)
+
+    if value < 0 or value > 100:
         raise ValueError(
             "SOC must be between 0 and 100%."
         )
 
+    return value
 
-def validate_temperature(
-    temperature_c: float,
-) -> None:
-    """
-    Validate battery temperature.
 
-    This is only a basic input sanity check.
-    It is not a battery safety certification.
-    """
+def validate_temperature(value):
+    value = float(value)
 
-    if temperature_c < -30 or temperature_c > 80:
+    if value < -50 or value > 100:
         raise ValueError(
-            "Temperature must be between -30°C and 80°C "
-            "for this simulation."
+            "Temperature is outside the supported range."
         )
+
+    return value
 
 
 def validate_battery_capacity(
-    rated_capacity_ah: float,
-    measured_capacity_ah: float,
-) -> None:
-    """Validate battery capacity measurements."""
+    rated_capacity,
+    measured_capacity
+):
+    rated_capacity = float(rated_capacity)
+    measured_capacity = float(measured_capacity)
 
-    if rated_capacity_ah <= 0:
+    if rated_capacity <= 0:
         raise ValueError(
-            "Rated capacity must be greater than zero."
+            "Rated battery capacity must be greater than zero."
         )
 
-    if measured_capacity_ah < 0:
+    if measured_capacity < 0:
         raise ValueError(
-            "Measured capacity cannot be negative."
+            "Measured battery capacity cannot be negative."
         )
+
+    if measured_capacity > rated_capacity:
+        raise ValueError(
+            "Measured capacity cannot exceed rated capacity "
+            "in this simplified model."
+        )
+
+    return True
