@@ -13,7 +13,21 @@ from tools.battery_tools import (
     analyze_battery_health,
 )
 
+from agents.solar_agent import (
+    run_solar_agent,
+)
 
+from agents.battery_agent import (
+    run_battery_agent,
+)
+
+from agents.load_agent import (
+    run_load_agent,
+)
+
+from agents.grid_agent import (
+    run_grid_agent,
+)
 # ============================================================
 # PAGE CONFIGURATION
 # ============================================================
