@@ -1418,6 +1418,9 @@ with tabs[3]:
         use_container_width=True,
         hide_index=True,
     )
+# ============================================================
+# TAB 5 — SUPERVISOR AGENTS
+# ============================================================
 with tabs[4]:
 
     st.subheader("🧠 Supervisor Agent")
