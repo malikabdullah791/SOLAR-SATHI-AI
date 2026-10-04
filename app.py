@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from pathlib import Path
 
 from tools.energy_tools import (
     calculate_energy_flow,
@@ -9,6 +8,7 @@ from tools.energy_tools import (
     calculate_energy_cost,
     check_energy_balance,
 )
+
 
 # ============================================================
 # PAGE CONFIGURATION
@@ -23,30 +23,80 @@ st.set_page_config(
 
 
 # ============================================================
+# CUSTOM CSS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        font-size: 42px;
+        font-weight: 700;
+        margin-bottom: 0px;
+    }
+
+    .subtitle {
+        font-size: 18px;
+        color: #666666;
+        margin-bottom: 25px;
+    }
+
+    .section-title {
+        font-size: 25px;
+        font-weight: 600;
+        margin-top: 15px;
+        margin-bottom: 10px;
+    }
+
+    .info-box {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #f5f7fa;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 15px;
+    }
+
+    .warning-box {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #fff7ed;
+        border: 1px solid #fed7aa;
+        margin-bottom: 15px;
+    }
+
+    .success-box {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        margin-bottom: 15px;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
 # DEMO SCENARIOS
 # ============================================================
 
 DEMO_SCENARIOS = {
+
     "Sunny Day": {
-        "description": "High solar generation with moderate household demand.",
         "solar_kw": 5.0,
         "load_kw": 3.0,
         "battery_soc": 60.0,
         "battery_capacity_kwh": 10.0,
         "battery_health": 92.0,
-        "temperature_c": 29.0,
+        "temperature_c": 28.0,
         "grid_available": True,
-        "grid_tariff": 45.0,
-        "solar_to_load": 3.0,
-        "solar_to_battery": 2.0,
-        "battery_to_load": 0.0,
-        "grid_to_load": 0.0,
-        "grid_to_battery": 0.0,
-        "solar_export": 0.0,
+        "grid_tariff": 50.0,
     },
 
     "Evening / Load Shedding": {
-        "description": "No solar generation and the grid is unavailable.",
         "solar_kw": 0.0,
         "load_kw": 4.0,
         "battery_soc": 40.0,
@@ -54,49 +104,29 @@ DEMO_SCENARIOS = {
         "battery_health": 88.0,
         "temperature_c": 30.0,
         "grid_available": False,
-        "grid_tariff": 45.0,
-        "solar_to_load": 0.0,
-        "solar_to_battery": 0.0,
-        "battery_to_load": 2.5,
-        "grid_to_load": 0.0,
-        "grid_to_battery": 0.0,
-        "solar_export": 0.0,
+        "grid_tariff": 50.0,
     },
 
     "Battery Health Problem": {
-        "description": "Battery temperature is high and estimated capacity health is low.",
-        "solar_kw": 1.5,
+        "solar_kw": 1.0,
         "load_kw": 3.0,
         "battery_soc": 30.0,
         "battery_capacity_kwh": 10.0,
         "battery_health": 55.0,
         "temperature_c": 43.0,
         "grid_available": True,
-        "grid_tariff": 45.0,
-        "solar_to_load": 1.5,
-        "solar_to_battery": 0.0,
-        "battery_to_load": 0.0,
-        "grid_to_load": 1.5,
-        "grid_to_battery": 0.0,
-        "solar_export": 0.0,
+        "grid_tariff": 50.0,
     },
 
     "High Solar Surplus": {
-        "description": "Solar generation is much higher than the current load.",
         "solar_kw": 7.0,
         "load_kw": 2.0,
         "battery_soc": 50.0,
         "battery_capacity_kwh": 10.0,
-        "battery_health": 95.0,
-        "temperature_c": 28.0,
+        "battery_health": 90.0,
+        "temperature_c": 29.0,
         "grid_available": True,
-        "grid_tariff": 45.0,
-        "solar_to_load": 2.0,
-        "solar_to_battery": 3.0,
-        "battery_to_load": 0.0,
-        "grid_to_load": 0.0,
-        "grid_to_battery": 0.0,
-        "solar_export": 2.0,
+        "grid_tariff": 50.0,
     },
 }
 
@@ -105,23 +135,8 @@ DEMO_SCENARIOS = {
 # HELPER FUNCTIONS
 # ============================================================
 
-def load_sample_data():
-    """Load the sample energy data from the data folder."""
-
-    file_path = Path("data/sample_energy_data.csv")
-
-    if not file_path.exists():
-        return None
-
-    try:
-        data = pd.read_csv(file_path)
-        return data
-    except Exception:
-        return None
-
-
 def get_battery_health_label(health):
-    """Return a simple battery-health label."""
+    """Convert battery health percentage into a simple label."""
 
     if health >= 85:
         return "Healthy"
@@ -133,137 +148,228 @@ def get_battery_health_label(health):
         return "Poor"
 
 
-def get_recommendation(scenario):
-    """Generate a simple Phase 1 rule-based recommendation.
+def get_recommendation(
+    solar_kw,
+    load_kw,
+    battery_soc,
+    battery_health,
+    temperature_c,
+    grid_available,
+):
+    """Generate a simple deterministic recommendation."""
 
-    This is intentionally simple.
-    More advanced deterministic calculations will be added in Phase 2.
-    """
+    recommendations = []
 
-    if scenario == "Sunny Day":
-        return (
-            "☀️ Use solar power for the current load. "
-            "The available surplus can be used to charge the battery "
-            "and reduce dependence on the grid."
+    # Solar condition
+    if solar_kw > load_kw:
+        recommendations.append(
+            "Solar generation is higher than the current load. "
+            "Use the surplus for battery charging where appropriate."
         )
 
-    if scenario == "Evening / Load Shedding":
-        return (
-            "🔋 Grid power is unavailable. Use the battery carefully "
-            "and prioritize essential loads because battery SOC is only 40%."
+    elif solar_kw < load_kw:
+        recommendations.append(
+            "Solar generation is below the current load. "
+            "Battery or grid support may be required."
         )
 
-    if scenario == "Battery Health Problem":
-        return (
-            "⚠️ Battery health requires attention. High temperature and "
-            "low estimated health suggest that aggressive battery cycling "
-            "should be avoided. Professional inspection is recommended."
+    else:
+        recommendations.append(
+            "Solar generation is approximately matching the current load."
         )
 
-    if scenario == "High Solar Surplus":
-        return (
-            "☀️ Solar generation is much higher than the current load. "
-            "Use solar for the load, charge the battery with suitable surplus, "
-            "and consider export or curtailment for remaining generation."
+    # Battery SOC
+    if battery_soc < 20:
+        recommendations.append(
+            "Battery SOC is very low. Avoid unnecessary battery discharge."
         )
 
-    return "No recommendation available."
+    elif battery_soc < 40:
+        recommendations.append(
+            "Battery SOC is relatively low. Prioritize essential loads."
+        )
+
+    elif battery_soc > 90:
+        recommendations.append(
+            "Battery SOC is high. Use available solar surplus carefully."
+        )
+
+    # Battery health
+    if battery_health < 50:
+        recommendations.append(
+            "Battery health is poor according to this simplified model. "
+            "Consider inspection and further testing."
+        )
+
+    elif battery_health < 70:
+        recommendations.append(
+            "Battery health needs attention. Further testing is recommended."
+        )
+
+    # Temperature
+    if temperature_c >= 40:
+        recommendations.append(
+            "Battery temperature is high. Avoid aggressive operation "
+            "and have the system checked by a qualified professional."
+        )
+
+    # Grid
+    if not grid_available:
+        recommendations.append(
+            "Grid is unavailable. Prioritize essential loads and "
+            "preserve battery SOC."
+        )
+
+    else:
+        recommendations.append(
+            "Grid is available. Use it when solar and battery resources "
+            "cannot safely meet demand."
+        )
+
+    return recommendations
 
 
-def create_energy_flow_chart(data):
-    """Create a simple Sankey diagram showing the demo energy flow."""
+def create_energy_flow_chart(flow):
+    """Create Plotly Sankey diagram."""
 
     labels = [
         "Solar",
-        "Grid",
         "Battery",
+        "Grid",
         "Load",
         "Battery Charging",
-        "Export",
+        "Solar Export",
+        "Unserved Load",
     ]
 
-    sources = []
-    targets = []
-    values = []
+    solar_to_load = flow["solar_to_load_kw"]
+    solar_to_battery = flow["solar_to_battery_kw"]
+    battery_to_load = flow["battery_to_load_kw"]
+    grid_to_load = flow["grid_to_load_kw"]
+    solar_export = flow["solar_export_kw"]
+    unserved_load = flow["unserved_load_kw"]
 
-    # Solar -> Load
-    if data["solar_to_load"] > 0:
-        sources.append(0)
-        targets.append(3)
-        values.append(data["solar_to_load"])
+    source = []
+    target = []
+    value = []
 
-    # Solar -> Battery
-    if data["solar_to_battery"] > 0:
-        sources.append(0)
-        targets.append(4)
-        values.append(data["solar_to_battery"])
+    if solar_to_load > 0:
+        source.append(0)
+        target.append(3)
+        value.append(solar_to_load)
 
-    # Solar -> Export
-    if data["solar_export"] > 0:
-        sources.append(0)
-        targets.append(5)
-        values.append(data["solar_export"])
+    if solar_to_battery > 0:
+        source.append(0)
+        target.append(4)
+        value.append(solar_to_battery)
 
-    # Grid -> Load
-    if data["grid_to_load"] > 0:
-        sources.append(1)
-        targets.append(3)
-        values.append(data["grid_to_load"])
+    if battery_to_load > 0:
+        source.append(1)
+        target.append(3)
+        value.append(battery_to_load)
 
-    # Battery -> Load
-    if data["battery_to_load"] > 0:
-        sources.append(2)
-        targets.append(3)
-        values.append(data["battery_to_load"])
+    if grid_to_load > 0:
+        source.append(2)
+        target.append(3)
+        value.append(grid_to_load)
 
-    # Grid -> Battery
-    if data["grid_to_battery"] > 0:
-        sources.append(1)
-        targets.append(4)
-        values.append(data["grid_to_battery"])
+    if solar_export > 0:
+        source.append(0)
+        target.append(5)
+        value.append(solar_export)
 
-    figure = go.Figure(
-        data=[
-            go.Sankey(
-                node=dict(
-                    pad=20,
-                    thickness=25,
-                    label=labels,
-                ),
-                link=dict(
-                    source=sources,
-                    target=targets,
-                    value=values,
-                ),
-            )
-        ]
+    if unserved_load > 0:
+        source.append(0)
+        target.append(6)
+        value.append(unserved_load)
+
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(
+                pad=20,
+                thickness=20,
+                label=labels,
+            ),
+            link=dict(
+                source=source,
+                target=target,
+                value=value,
+            ),
+        )
     )
 
-    figure.update_layout(
-        title="Energy Flow — Demo Simulation",
+    fig.update_layout(
+        title="Energy Flow",
+        font_size=13,
         height=450,
-        font=dict(size=14),
     )
 
-    return figure
+    return fig
+
+
+def load_sample_data():
+    """Create sample historical energy data."""
+
+    data = {
+        "Hour": [
+            "06:00",
+            "08:00",
+            "10:00",
+            "12:00",
+            "14:00",
+            "16:00",
+            "18:00",
+            "20:00",
+        ],
+        "Solar (kW)": [
+            0.2,
+            1.5,
+            3.2,
+            5.0,
+            5.5,
+            3.8,
+            1.0,
+            0.0,
+        ],
+        "Load (kW)": [
+            1.5,
+            2.0,
+            2.5,
+            3.0,
+            3.2,
+            3.5,
+            4.0,
+            3.0,
+        ],
+        "Battery SOC (%)": [
+            45,
+            48,
+            55,
+            65,
+            75,
+            80,
+            65,
+            50,
+        ],
+    }
+
+    return pd.DataFrame(data)
 
 
 # ============================================================
 # HEADER
 # ============================================================
 
-st.title("☀️ SolarSathi AI")
-
-st.subheader("Your Solar System's AI Companion")
+st.markdown(
+    '<div class="main-title">☀️ SolarSathi AI</div>',
+    unsafe_allow_html=True,
+)
 
 st.markdown(
-    """
-SolarSathi AI is a simulation-based energy management assistant for
-homes, small shops and small industrial users.
-
-It combines solar generation, electrical load, battery status and grid
-information to provide understandable energy recommendations.
-"""
+    '<div class="subtitle">'
+    "Your Solar System's AI Companion"
+    "</div>",
+    unsafe_allow_html=True,
 )
 
 
@@ -271,7 +377,7 @@ information to provide understandable energy recommendations.
 # SIDEBAR
 # ============================================================
 
-st.sidebar.header("⚙️ Demo Controls")
+st.sidebar.header("⚙️ System Configuration")
 
 selected_scenario = st.sidebar.selectbox(
     "Select Demo Scenario",
@@ -282,467 +388,743 @@ scenario_data = DEMO_SCENARIOS[selected_scenario]
 
 st.sidebar.markdown("---")
 
-st.sidebar.write("### Scenario")
+st.sidebar.subheader("Current System")
 
-st.sidebar.info(scenario_data["description"])
-
-st.sidebar.markdown("---")
-
-st.sidebar.write("### System Parameters")
-
-st.sidebar.write(
-    f"☀️ Solar: **{scenario_data['solar_kw']:.1f} kW**"
+solar_kw = st.sidebar.number_input(
+    "Solar Generation (kW)",
+    min_value=0.0,
+    value=float(scenario_data["solar_kw"]),
+    step=0.1,
 )
 
-st.sidebar.write(
-    f"🏠 Load: **{scenario_data['load_kw']:.1f} kW**"
+load_kw = st.sidebar.number_input(
+    "Current Load (kW)",
+    min_value=0.0,
+    value=float(scenario_data["load_kw"]),
+    step=0.1,
 )
 
-st.sidebar.write(
-    f"🔋 Battery SOC: **{scenario_data['battery_soc']:.0f}%**"
+battery_soc = st.sidebar.slider(
+    "Battery SOC (%)",
+    min_value=0.0,
+    max_value=100.0,
+    value=float(scenario_data["battery_soc"]),
+    step=1.0,
 )
 
-grid_status = "Available" if scenario_data["grid_available"] else "Unavailable"
+battery_capacity = st.sidebar.number_input(
+    "Battery Capacity (kWh)",
+    min_value=0.1,
+    value=float(scenario_data["battery_capacity_kwh"]),
+    step=0.5,
+)
 
-st.sidebar.write(
-    f"⚡ Grid: **{grid_status}**"
+battery_health = st.sidebar.slider(
+    "Battery Health (%)",
+    min_value=0.0,
+    max_value=100.0,
+    value=float(scenario_data["battery_health"]),
+    step=1.0,
+)
+
+temperature_c = st.sidebar.number_input(
+    "Battery Temperature (°C)",
+    min_value=-20.0,
+    max_value=100.0,
+    value=float(scenario_data["temperature_c"]),
+    step=1.0,
+)
+
+grid_available = st.sidebar.checkbox(
+    "Grid Available",
+    value=bool(scenario_data["grid_available"]),
+)
+
+grid_tariff = st.sidebar.number_input(
+    "Grid Tariff (Rs/kWh)",
+    min_value=0.0,
+    value=float(scenario_data["grid_tariff"]),
+    step=1.0,
 )
 
 
 # ============================================================
-# TOP KPI CARDS
+# CALCULATIONS
 # ============================================================
 
-st.markdown("## 📊 System Overview")
+try:
+
+    calculated_flow = calculate_energy_flow(
+        solar_kw=solar_kw,
+        load_kw=load_kw,
+        battery_soc=battery_soc,
+        grid_available=grid_available,
+        min_battery_soc=20.0,
+        max_battery_charge_kw=5.0,
+        max_battery_discharge_kw=5.0,
+    )
+
+    backup_time = calculate_backup_time(
+        battery_capacity_kwh=battery_capacity,
+        battery_soc=battery_soc,
+        load_kw=load_kw,
+        min_soc=20.0,
+        usable_fraction=0.90,
+    )
+
+    estimated_energy_cost = calculate_energy_cost(
+        energy_kwh=load_kw,
+        tariff_rs_per_kwh=grid_tariff,
+    )
+
+    energy_balance = check_energy_balance(
+        supply_kw=calculated_flow["total_supply_kw"],
+        demand_kw=calculated_flow["total_demand_kw"],
+    )
+
+except ValueError as error:
+
+    st.error(
+        f"Input validation error: {error}"
+    )
+
+    st.stop()
+
+
+# ============================================================
+# KPI DASHBOARD
+# ============================================================
+
+st.markdown(
+    '<div class="section-title">📊 System Overview</div>',
+    unsafe_allow_html=True,
+)
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     st.metric(
-        "☀️ Solar Generation",
-        f"{scenario_data['solar_kw']:.1f} kW",
+        "☀️ Solar",
+        f"{solar_kw:.1f} kW",
     )
 
 with col2:
     st.metric(
         "🔋 Battery SOC",
-        f"{scenario_data['battery_soc']:.0f}%",
+        f"{battery_soc:.0f}%",
     )
 
 with col3:
     st.metric(
-        "🏠 Current Load",
-        f"{scenario_data['load_kw']:.1f} kW",
+        "⚡ Load",
+        f"{load_kw:.1f} kW",
     )
 
 with col4:
+
+    grid_status = (
+        "Available"
+        if grid_available
+        else "Unavailable"
+    )
+
     st.metric(
-        "⚡ Grid Status",
-        "Available" if scenario_data["grid_available"] else "Load Shedding",
+        "🔌 Grid",
+        grid_status,
     )
 
 with col5:
-    health_label = get_battery_health_label(
-        scenario_data["battery_health"]
-    )
 
     st.metric(
         "❤️ Battery Health",
-        health_label,
-        f"{scenario_data['battery_health']:.0f}%",
+        f"{battery_health:.0f}%",
     )
 
 
 # ============================================================
-# MAIN TABS
+# BATTERY STATUS
 # ============================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+health_label = get_battery_health_label(
+    battery_health
+)
+
+if health_label == "Healthy":
+    st.success(
+        f"🔋 Battery Status: **{health_label}** ({battery_health:.0f}%)"
+    )
+
+elif health_label == "Good":
+    st.info(
+        f"🔋 Battery Status: **{health_label}** ({battery_health:.0f}%)"
+    )
+
+elif health_label == "Needs Attention":
+    st.warning(
+        f"🔋 Battery Status: **{health_label}** ({battery_health:.0f}%)"
+    )
+
+else:
+    st.error(
+        f"🔋 Battery Status: **{health_label}** ({battery_health:.0f}%)"
+    )
+
+
+# ============================================================
+# TABS
+# ============================================================
+
+tabs = st.tabs(
     [
-        "🏠 Dashboard",
+        "📊 Dashboard",
         "⚡ Energy Manager",
         "🔋 Battery Health Doctor",
         "🤖 AI Agent",
         "📚 Knowledge / RAG",
-        "📊 Reports & Insights",
+        "📄 Reports & Insights",
         "⚙️ Settings",
     ]
 )
 
 
 # ============================================================
-# DASHBOARD TAB
+# TAB 1 - DASHBOARD
 # ============================================================
 
-with tab1:
+with tabs[0]:
 
-    st.markdown("## 🏠 Energy Dashboard")
-
-    st.info(
-        f"Current demonstration scenario: **{selected_scenario}**"
+    st.markdown(
+        '<div class="section-title">Energy Flow</div>',
+        unsafe_allow_html=True,
     )
 
-    left, right = st.columns([1.3, 1])
+    chart_col, summary_col = st.columns(
+        [2, 1]
+    )
 
-    with left:
+    with chart_col:
+
+        fig = create_energy_flow_chart(
+            calculated_flow
+        )
 
         st.plotly_chart(
-            create_energy_flow_chart(scenario_data),
+            fig,
             use_container_width=True,
         )
 
-    with right:
+    with summary_col:
 
-        st.markdown("### 💡 Current Recommendation")
+        st.subheader("Energy Summary")
 
-        st.success(
-            get_recommendation(selected_scenario)
+        st.write(
+            f"Solar → Load: "
+            f"**{calculated_flow['solar_to_load_kw']:.2f} kW**"
         )
 
-        st.markdown("### 🔎 System Status")
+        st.write(
+            f"Solar → Battery: "
+            f"**{calculated_flow['solar_to_battery_kw']:.2f} kW**"
+        )
 
-        if scenario_data["battery_health"] >= 85:
-            st.success("🟢 Battery health is currently healthy.")
-        elif scenario_data["battery_health"] >= 70:
-            st.info("🔵 Battery health is currently good.")
-        elif scenario_data["battery_health"] >= 50:
-            st.warning("🟠 Battery health needs attention.")
+        st.write(
+            f"Battery → Load: "
+            f"**{calculated_flow['battery_to_load_kw']:.2f} kW**"
+        )
+
+        st.write(
+            f"Grid → Load: "
+            f"**{calculated_flow['grid_to_load_kw']:.2f} kW**"
+        )
+
+        st.write(
+            f"Solar Export: "
+            f"**{calculated_flow['solar_export_kw']:.2f} kW**"
+        )
+
+        st.write(
+            f"Unserved Load: "
+            f"**{calculated_flow['unserved_load_kw']:.2f} kW**"
+        )
+
+        st.divider()
+
+        if energy_balance["balanced"]:
+            st.success(
+                "✅ Energy balance is approximately balanced."
+            )
         else:
-            st.error("🔴 Battery health is poor.")
-
-        if scenario_data["temperature_c"] >= 40:
-            st.error(
-                f"⚠️ High battery temperature detected: "
-                f"{scenario_data['temperature_c']:.1f} °C"
-            )
-
-        if scenario_data["battery_soc"] <= 30:
             st.warning(
-                "Battery SOC is low. Avoid unnecessary discharge."
-            )
-
-        if not scenario_data["grid_available"]:
-            st.warning(
-                "Grid is unavailable. Essential loads should be prioritized."
+                "⚠️ Energy balance has a small difference."
             )
 
 
 # ============================================================
-# ENERGY MANAGER TAB
+# TAB 2 - ENERGY MANAGER
 # ============================================================
 
-with tab2:
+with tabs[1]:
 
-    st.markdown("## ⚡ Energy Manager")
-
-    st.write(
-        "This section provides a basic visualization of the current "
-        "solar, load, battery and grid situation."
+    st.markdown(
+        '<div class="section-title">⚡ Energy Manager</div>',
+        unsafe_allow_html=True,
     )
 
-    energy_data = pd.DataFrame(
+    st.write(
+        "The Energy Manager uses deterministic Python calculations "
+        "to estimate how solar, battery, and grid resources can "
+        "serve the current load."
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.metric(
+            "Solar Surplus",
+            f"{calculated_flow['solar_surplus_kw']:.2f} kW",
+        )
+
+    with col2:
+
+        st.metric(
+            "Solar Deficit",
+            f"{calculated_flow['solar_deficit_kw']:.2f} kW",
+        )
+
+    with col3:
+
+        if backup_time == float("inf"):
+            backup_text = "N/A"
+        else:
+            backup_text = f"{backup_time:.2f} h"
+
+        st.metric(
+            "Estimated Backup",
+            backup_text,
+        )
+
+    st.subheader("Calculated Energy Flow")
+
+    flow_df = pd.DataFrame(
         {
-            "Source": [
+            "Energy Path": [
                 "Solar → Load",
                 "Solar → Battery",
                 "Battery → Load",
                 "Grid → Load",
-                "Grid → Battery",
-                "Solar → Export",
+                "Solar Export",
+                "Unserved Load",
             ],
             "Power (kW)": [
-                scenario_data["solar_to_load"],
-                scenario_data["solar_to_battery"],
-                scenario_data["battery_to_load"],
-                scenario_data["grid_to_load"],
-                scenario_data["grid_to_battery"],
-                scenario_data["solar_export"],
+                calculated_flow["solar_to_load_kw"],
+                calculated_flow["solar_to_battery_kw"],
+                calculated_flow["battery_to_load_kw"],
+                calculated_flow["grid_to_load_kw"],
+                calculated_flow["solar_export_kw"],
+                calculated_flow["unserved_load_kw"],
             ],
         }
     )
 
     st.dataframe(
-        energy_data,
+        flow_df,
         use_container_width=True,
         hide_index=True,
     )
 
-    st.markdown("### Current Operating Mode")
-
-    if scenario_data["solar_kw"] > scenario_data["load_kw"]:
-        st.success(
-            "☀️ Solar generation is higher than the current load. "
-            "This is a solar-surplus condition."
-        )
-    elif scenario_data["solar_kw"] > 0:
-        st.info(
-            "☀️ Solar is contributing to the current load."
-        )
-    else:
-        st.warning(
-            "🌙 Solar generation is currently unavailable."
-        )
-
-
-# ============================================================
-# BATTERY HEALTH TAB
-# ============================================================
-
-with tab3:
-
-    st.markdown("## 🔋 Battery Health Doctor")
+    st.subheader("Estimated Grid Cost")
 
     st.write(
-        "This is a preliminary simulation-based battery health assessment."
+        f"Current estimated load energy cost: "
+        f"**Rs {estimated_energy_cost:,.2f}**"
     )
 
-    battery_col1, battery_col2 = st.columns(2)
+    st.caption(
+        "This is a simplified calculation based on current load "
+        "and configured tariff."
+    )
 
-    with battery_col1:
+
+# ============================================================
+# TAB 3 - BATTERY HEALTH DOCTOR
+# ============================================================
+
+with tabs[2]:
+
+    st.markdown(
+        '<div class="section-title">🔋 Battery Health Doctor</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.write(
+        "This preliminary battery assessment uses the current "
+        "demo parameters. It is intended for decision support "
+        "and does not replace professional battery testing."
+    )
+
+    health_col1, health_col2 = st.columns(2)
+
+    with health_col1:
 
         st.metric(
-            "Battery SOC",
-            f"{scenario_data['battery_soc']:.0f}%",
+            "Battery Health",
+            f"{battery_health:.0f}%",
         )
-
-        st.metric(
-            "Estimated Health",
-            f"{scenario_data['battery_health']:.0f}%",
-        )
-
-    with battery_col2:
 
         st.metric(
             "Battery Temperature",
-            f"{scenario_data['temperature_c']:.1f} °C",
+            f"{temperature_c:.1f} °C",
         )
 
         st.metric(
-            "Battery Capacity",
-            f"{scenario_data['battery_capacity_kwh']:.1f} kWh",
+            "Battery SOC",
+            f"{battery_soc:.0f}%",
         )
 
-    st.markdown("### Preliminary Status")
+    with health_col2:
 
-    if scenario_data["battery_health"] >= 85:
-        st.success("🟢 Healthy")
-    elif scenario_data["battery_health"] >= 70:
-        st.info("🔵 Good")
-    elif scenario_data["battery_health"] >= 50:
-        st.warning("🟠 Needs Attention")
-    else:
-        st.error("🔴 Poor")
+        st.subheader("Assessment")
 
-    if scenario_data["temperature_c"] >= 40:
-        st.warning(
-            "Possible temperature-related battery stress detected. "
-            "Further testing is recommended."
+        if battery_health >= 85:
+            st.success(
+                "Healthy: preliminary indication is good."
+            )
+
+        elif battery_health >= 70:
+            st.info(
+                "Good: battery appears usable, "
+                "but monitoring is recommended."
+            )
+
+        elif battery_health >= 50:
+            st.warning(
+                "Needs Attention: further testing and "
+                "maintenance assessment are recommended."
+            )
+
+        else:
+            st.error(
+                "Poor: inspection and further testing "
+                "are strongly recommended."
+            )
+
+        if temperature_c >= 40:
+
+            st.warning(
+                "⚠️ Battery temperature is relatively high. "
+                "Avoid aggressive operation and consult a "
+                "qualified professional."
+            )
+
+        elif temperature_c >= 35:
+
+            st.info(
+                "Battery temperature is elevated. "
+                "Continue monitoring."
+            )
+
+        else:
+
+            st.success(
+                "Battery temperature is within the "
+                "configured demo range."
+            )
+
+    st.subheader("Possible Factors")
+
+    possible_factors = []
+
+    if battery_health < 70:
+        possible_factors.append(
+            "Possible capacity degradation or aging."
         )
+
+    if temperature_c >= 40:
+        possible_factors.append(
+            "Possible effect of elevated operating temperature."
+        )
+
+    if battery_soc < 20:
+        possible_factors.append(
+            "Very low state of charge."
+        )
+
+    if not possible_factors:
+        possible_factors.append(
+            "No major warning factor detected by this "
+            "simplified assessment."
+        )
+
+    for factor in possible_factors:
+        st.write(f"• {factor}")
 
     st.caption(
-        "These thresholds are demonstration values only. "
-        "Actual battery assessment should follow the manufacturer's "
-        "specifications and qualified technical testing."
+        "Health thresholds are demonstration thresholds and "
+        "should be configured according to battery chemistry, "
+        "manufacturer specifications, operating conditions, "
+        "and professional testing."
     )
 
 
 # ============================================================
-# AI AGENT TAB
+# TAB 4 - AI AGENT
 # ============================================================
 
-with tab4:
+with tabs[3]:
 
-    st.markdown("## 🤖 AI Agent")
+    st.markdown(
+        '<div class="section-title">🤖 AI Agent</div>',
+        unsafe_allow_html=True,
+    )
 
     st.info(
-        "AI agents will be connected in Phase 4–6. "
-        "This tab is reserved for the Supervisor Agent and "
-        "specialized Solar, Battery, Load and Grid agents."
+        "AI agent integration will be added in the next phase "
+        "using the Groq API. The current phase uses deterministic "
+        "Python calculations."
     )
 
-    st.markdown("### Planned Agent Workflow")
+    st.subheader("Current Agentic Architecture")
 
-    workflow_steps = [
-        "1. User submits an energy question",
-        "2. Supervisor Agent understands the request",
-        "3. Solar Agent analyzes solar generation",
-        "4. Load Agent analyzes demand",
-        "5. Battery Agent analyzes battery condition",
-        "6. Grid Agent analyzes grid availability",
-        "7. Python tools perform deterministic calculations",
-        "8. Supervisor combines results",
-        "9. Safety checks the recommendation",
-        "10. Final recommendation is shown",
+    st.write(
+        """
+        **Future workflow:**
+
+        User Request
+        ↓
+        Supervisor Agent
+        ↓
+        ├── Solar Agent
+        ├── Battery Agent
+        ├── Load Agent
+        └── Grid Agent
+        ↓
+        Energy Calculation Tools
+        ↓
+        Supervisor Review
+        ↓
+        Final Recommendation
+        """
+    )
+
+    st.subheader("Current Activity")
+
+    activity = [
+        "✓ Streamlit dashboard loaded",
+        "✓ Scenario parameters validated",
+        "✓ Energy calculation tool executed",
+        "✓ Energy flow calculated",
+        "✓ Battery backup estimate calculated",
+        "✓ Energy balance checked",
+        "✓ Preliminary recommendation generated",
     ]
 
-    for step in workflow_steps:
-        st.write(step)
+    for item in activity:
+        st.write(item)
 
 
 # ============================================================
-# KNOWLEDGE / RAG TAB
+# TAB 5 - KNOWLEDGE / RAG
 # ============================================================
 
-with tab5:
+with tabs[4]:
 
-    st.markdown("## 📚 Knowledge / RAG")
+    st.markdown(
+        '<div class="section-title">📚 Knowledge / RAG</div>',
+        unsafe_allow_html=True,
+    )
 
     st.info(
-        "The RAG knowledge system will be implemented in Phase 8. "
-        "It will retrieve relevant solar and battery technical guidance "
-        "before generating AI explanations."
+        "Retrieval-Augmented Generation (RAG) will be implemented "
+        "in a later phase."
     )
 
-    st.markdown("### Planned Knowledge Sources")
+    st.write(
+        """
+        Planned knowledge sources:
 
-    knowledge_sources = [
-        "Solar PV Basics",
-        "Battery Charging Guidelines",
-        "Battery Safety",
-        "Battery Maintenance",
-        "Inverter Basics",
-        "Energy Management",
-        "Distributed Energy Resources",
-    ]
-
-    for source in knowledge_sources:
-        st.write(f"📄 {source}")
-
-
-# ============================================================
-# REPORTS TAB
-# ============================================================
-
-with tab6:
-
-    st.markdown("## 📊 Reports & Insights")
-
-    st.info(
-        "Automated daily and weekly reports will be implemented "
-        "in Phase 10."
+        • Solar PV basics
+        • Battery charging and maintenance
+        • Battery safety
+        • Inverter fundamentals
+        • Energy management
+        • DER / distributed energy resources
+        • Solar + battery troubleshooting
+        """
     )
 
-    sample_data = load_sample_data()
+    st.subheader("Planned Agentic RAG Flow")
 
-    if sample_data is not None:
-
-        st.markdown("### Sample Energy Dataset")
-
-        st.dataframe(
-            sample_data,
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        st.markdown("### Solar vs Load")
-
-        figure = go.Figure()
-
-        figure.add_trace(
-            go.Scatter(
-                x=sample_data["time"],
-                y=sample_data["solar_kw"],
-                mode="lines+markers",
-                name="Solar (kW)",
-            )
-        )
-
-        figure.add_trace(
-            go.Scatter(
-                x=sample_data["time"],
-                y=sample_data["load_kw"],
-                mode="lines+markers",
-                name="Load (kW)",
-            )
-        )
-
-        figure.update_layout(
-            xaxis_title="Time",
-            yaxis_title="Power (kW)",
-            height=400,
-        )
-
-        st.plotly_chart(
-            figure,
-            use_container_width=True,
-        )
-
-        st.markdown("### Battery SOC")
-
-        battery_chart = go.Figure()
-
-        battery_chart.add_trace(
-            go.Scatter(
-                x=sample_data["time"],
-                y=sample_data["battery_soc"],
-                mode="lines+markers",
-                name="Battery SOC (%)",
-            )
-        )
-
-        battery_chart.update_layout(
-            xaxis_title="Time",
-            yaxis_title="SOC (%)",
-            yaxis_range=[0, 100],
-            height=400,
-        )
-
-        st.plotly_chart(
-            battery_chart,
-            use_container_width=True,
-        )
-
-    else:
-
-        st.warning(
-            "Sample data file was not found. "
-            "Please check data/sample_energy_data.csv."
-        )
-
-
-# ============================================================
-# SETTINGS TAB
-# ============================================================
-
-with tab7:
-
-    st.markdown("## ⚙️ Settings")
-
-    st.markdown("### Current Phase")
-
-    st.success(
-        "Phase 1 — Basic Dashboard + Sample Data"
+    st.write(
+        """
+        User Question
+        ↓
+        Supervisor Agent
+        ↓
+        Retrieve Relevant Knowledge
+        ↓
+        Observe Retrieved Information
+        ↓
+        Decide if Information is Sufficient
+        ↓
+        Retrieve Again if Necessary
+        ↓
+        Battery / Solar / Grid Agent
+        ↓
+        Final Answer + Sources
+        """
     )
 
-    st.markdown("### Planned System")
 
-    settings_data = {
-        "Feature": [
-            "Streamlit Dashboard",
-            "Python Energy Tools",
-            "Multi-Agent System",
-            "Groq LLM",
-            "Session Memory",
-            "RAG",
-            "Agentic RAG",
-            "Automated Reports",
-            "Safety Guardrails",
+# ============================================================
+# TAB 6 - REPORTS & INSIGHTS
+# ============================================================
+
+with tabs[5]:
+
+    st.markdown(
+        '<div class="section-title">📄 Reports & Insights</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.subheader("Current System Report")
+
+    report_data = {
+        "Parameter": [
+            "Scenario",
+            "Solar Generation",
+            "Current Load",
+            "Battery SOC",
+            "Battery Capacity",
+            "Battery Health",
+            "Battery Temperature",
+            "Grid Status",
+            "Grid Tariff",
+            "Estimated Backup",
+            "Estimated Load Cost",
         ],
-        "Status": [
-            "✅ Active",
-            "🔜 Phase 2",
-            "🔜 Phase 4–5",
-            "🔜 Phase 6",
-            "🔜 Phase 7",
-            "🔜 Phase 8",
-            "🔜 Phase 9",
-            "🔜 Phase 10",
-            "🔜 Phase 11",
+        "Value": [
+            selected_scenario,
+            f"{solar_kw:.2f} kW",
+            f"{load_kw:.2f} kW",
+            f"{battery_soc:.1f}%",
+            f"{battery_capacity:.2f} kWh",
+            f"{battery_health:.1f}%",
+            f"{temperature_c:.1f} °C",
+            "Available" if grid_available else "Unavailable",
+            f"Rs {grid_tariff:.2f}/kWh",
+            (
+                "N/A"
+                if backup_time == float("inf")
+                else f"{backup_time:.2f} hours"
+            ),
+            f"Rs {estimated_energy_cost:,.2f}",
         ],
     }
 
-    st.table(
-        pd.DataFrame(settings_data)
+    report_df = pd.DataFrame(report_data)
+
+    st.dataframe(
+        report_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.subheader("Recommendation")
+
+    recommendations = get_recommendation(
+        solar_kw=solar_kw,
+        load_kw=load_kw,
+        battery_soc=battery_soc,
+        battery_health=battery_health,
+        temperature_c=temperature_c,
+        grid_available=grid_available,
+    )
+
+    for recommendation in recommendations:
+        st.write(
+            f"• {recommendation}"
+        )
+
+    st.subheader("Sample Historical Data")
+
+    sample_df = load_sample_data()
+
+    st.dataframe(
+        sample_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    csv_data = report_df.to_csv(
+        index=False
+    )
+
+    st.download_button(
+        label="⬇️ Download Current Report CSV",
+        data=csv_data,
+        file_name="solarsathi_energy_report.csv",
+        mime="text/csv",
+    )
+
+
+# ============================================================
+# TAB 7 - SETTINGS
+# ============================================================
+
+with tabs[6]:
+
+    st.markdown(
+        '<div class="section-title">⚙️ Settings</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.subheader("Simulation Settings")
+
+    st.write(
+        "Minimum battery SOC: **20%**"
+    )
+
+    st.write(
+        "Maximum demo battery charging power: **5 kW**"
+    )
+
+    st.write(
+        "Maximum demo battery discharge power: **5 kW**"
+    )
+
+    st.write(
+        "Battery usable fraction for backup estimate: **90%**"
+    )
+
+    st.subheader("Project Status")
+
+    status_items = [
+        ("Phase 1", "Streamlit dashboard", "Completed"),
+        ("Phase 2", "Energy calculation engine", "Completed"),
+        ("Phase 3", "Battery health tools", "Next"),
+        ("Phase 4", "Specialized agents", "Planned"),
+        ("Phase 5", "Supervisor agent", "Planned"),
+        ("Phase 6", "Groq integration", "Planned"),
+        ("Phase 7", "Session memory", "Planned"),
+        ("Phase 8", "RAG", "Planned"),
+        ("Phase 9", "Agentic RAG", "Planned"),
+        ("Phase 10", "Workflow & reports", "Planned"),
+    ]
+
+    status_df = pd.DataFrame(
+        status_items,
+        columns=[
+            "Phase",
+            "Feature",
+            "Status",
+        ],
+    )
+
+    st.dataframe(
+        status_df,
+        use_container_width=True,
+        hide_index=True,
     )
 
 
@@ -754,17 +1136,23 @@ st.markdown("---")
 
 st.warning(
     """
-⚠️ **Safety Disclaimer**
+    ⚠️ **Safety Disclaimer**
 
-SolarSathi AI provides simulation-based and informational
-recommendations. It does not directly control electrical equipment.
+    SolarSathi AI provides simulation-based and informational
+    recommendations. It does not directly control electrical
+    equipment.
 
-Electrical installations, battery servicing, grid connections,
-and protection-system changes must be performed or verified
-by qualified professionals.
-"""
+    Electrical installations, battery servicing, grid connections,
+    inverter configuration, protection-system changes, and other
+    electrical work must be performed or verified by qualified
+    professionals.
+
+    The calculations shown by this application are simplified
+    demonstrations and should not be treated as industrial-grade
+    protection, control, battery diagnostics, or electrical design.
+    """
 )
 
 st.caption(
-    "SolarSathi AI — Final Hackathon Project | Phase 1"
+    "SolarSathi AI — Agentic Solar + Battery Energy Manager & Battery Health Doctor"
 )
